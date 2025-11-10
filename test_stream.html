@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Face Recognition Stream</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        .video-container {
+            border: 3px solid #4CAF50;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        img {
+            width: 100%;
+            display: block;
+        }
+        .info {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        .status.active {
+            background: #4CAF50;
+            color: white;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        .stop-btn {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎥 Face Recognition Stream Test</h1>
+    
+    <div class="info">
+        <strong>Stream Status:</strong> <span class="status active">ACTIVE</span><br>
+        <strong>Backend:</strong> http://localhost:5006<br>
+        <strong>Note:</strong> This is a continuous MJPEG stream. It should be smooth, not choppy.
+    </div>
+
+    <div>
+        <button class="start-btn" onclick="startMonitoring()">Start Monitoring</button>
+        <button class="stop-btn" onclick="stopMonitoring()">Stop Monitoring</button>
+    </div>
+
+    <div class="video-container">
+        <img id="stream" src="http://localhost:5006/video_feed" alt="Face Recognition Stream">
+    </div>
+
+    <div class="info">
+        <strong>Instructions:</strong>
+        <ul>
+            <li>The stream should be continuous and smooth</li>
+            <li>Unknown faces will show a yellow box</li>
+            <li>Known faces will show a green box</li>
+            <li>Click "Start Monitoring" to activate face recognition</li>
+        </ul>
+    </div>
+
+    <script>
+        function startMonitoring() {
+            fetch('http://localhost:5006/start_monitoring')
+                .then(response => response.text())
+                .then(data => {
+                    console.log('Monitoring started:', data);
+                    alert('Monitoring started!');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to start monitoring');
+                });
+        }
+
+        function stopMonitoring() {
+            fetch('http://localhost:5006/stop_monitoring')
+                .then(response => response.text())
+                .then(data => {
+                    console.log('Monitoring stopped:', data);
+                    alert('Monitoring stopped!');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        // Log when stream loads
+        document.getElementById('stream').onload = function() {
+            console.log('Stream connected successfully');
+        };
+
+        document.getElementById('stream').onerror = function() {
+            console.error('Stream error - check if backend is running');
+        };
+    </script>
+</body>
+</html>
