@@ -28,10 +28,7 @@
                     <button id="register-btn" class="register-btn">Register New Face</button>
                 </span>
             </div>
-            <div class="info-row">
-                <span class="info-label">Confidence:</span>
-                <span id="confidence">-</span>
-            </div>
+
             <div class="info-row">
                 <span class="info-label">Time:</span>
                 <span id="time">-</span>
@@ -403,13 +400,6 @@
             nameSpan.textContent = isUnknown ? 'Unknown' : name;
             timeSpan.textContent = data.time || '-';
             
-            // Update confidence if available
-            if (data.confidence !== undefined) {
-                const confidencePercent = Math.round((data.confidence || 0) * 100);
-                document.getElementById('confidence').textContent = 
-                    isUnknown ? 'N/A' : `${confidencePercent}%`;
-            }
-            
             // Update status
             const statusElement = document.getElementById('status');
             const faceDetected = data.face_detected === true;  // Ensure boolean
@@ -427,7 +417,6 @@
                 name: name,
                 isUnknown: isUnknown,
                 faceDetected: faceDetected,
-                confidence: data.confidence
             });
             
             // Show/hide register button for unknown faces

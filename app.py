@@ -11,8 +11,11 @@ import threading
 import geocoder
 import json
 import shutil
-from facenet_recognizer import FaceNetRecognizer
-
+from opencv_recognizer import OpenCVFaceRecognizer
+# Install with:
+# pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v50 'numpy<2' opencv-python
+import cv2
+print(cv2.cuda.getCudaEnabledDeviceCount())  # Should be 1
 def get_location():
     """Return a static location string since location functionality is not needed."""
     return "Location not tracked"
@@ -43,8 +46,8 @@ latest_identification = {
 }
 ANTI_SPOOF_THRESHOLD = 0.95 # Adjusted threshold for anti-spoofing (increased for stricter classification)
 
-# Initialize FaceNet recognizer
-face_recognizer = FaceNetRecognizer(known_faces_dir='known_faces', threshold=0.5)
+# Initialize OpenCV face recognizer
+face_recognizer = OpenCVFaceRecognizer(known_faces_dir='known_faces', threshold=70)
 
 # Frame buffer for real-time streaming
 current_frame = None
@@ -288,11 +291,13 @@ def process_frames_background(cap):
             # Convert the image to RGB (MTCNN expects RGB)
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-            # Process frame with FaceNet
+            # Process frame with OpenCV
             print("\n--- Processing Frame ---")
             print(f"Frame shape: {rgb_frame.shape}")
             
-            results = face_recognizer.recognize_faces(rgb_frame)
+            # Convert back to BGR for OpenCV functions
+            bgr_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+            results = face_recognizer.recognize_faces(bgr_frame)
             
             # Default identification when no faces are found
             current_identification = {
@@ -309,7 +314,8 @@ def process_frames_background(cap):
             # If faces are found, process them
             if results:
                 # Draw boxes and get the first face's info
-                frame = face_recognizer.draw_boxes(frame, results)
+                frame = face_recognizer.draw_boxes(bgr_frame, results)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert back to RGB for display
                 first_face = results[0]
                 
                 # Ensure we have valid values for all fields
