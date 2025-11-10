@@ -12,14 +12,32 @@
         <button id="clear-faces-btn" class="danger">Clear Known Faces</button>
     </div>
     <div class="video-container">
-        <img id="video-feed" src="" width="640" height="480" onerror="console.error('Error loading video feed')" onload="console.log('Video feed loaded successfully')">
+        <img id="video-feed" src="{{ url_for('video_feed') }}" width="640" height="480" onerror="console.error('Error loading video feed')" onload="console.log('Video feed loaded successfully')">
     </div>
     <div id="identification-info">
-        <p>Name: <span id="name"></span> <span id="register-btn-container" style="display: none;">
-            <button id="register-btn" class="register-btn">Register New Face</button>
-        </span></p>
-        <p>Time: <span id="time"></span></p>
-        <p>Location: <span id="location"></span></p>
+        <div class="info-card">
+            <h3>Face Recognition Status</h3>
+            <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span id="status" class="status">Ready</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Name:</span>
+                <span id="name">-</span>
+                <span id="register-btn-container" style="display: none; margin-left: 10px;">
+                    <button id="register-btn" class="register-btn">Register New Face</button>
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Confidence:</span>
+                <span id="confidence">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Time:</span>
+                <span id="time">-</span>
+            </div>
+            <!-- Location display removed -->
+        </div>
     </div>
 
     <!-- Modal for registering new face -->
@@ -30,19 +48,138 @@
             <p>Enter the name for the new face:</p>
             <input type="text" id="person-name" placeholder="Enter name" required>
             <div class="modal-buttons">
-                <button id="confirm-register">Register</button>
-                <button id="cancel-register">Cancel</button>
+                <button id="cancel-register-btn">Cancel</button>
+                <button id="confirm-register-btn" class="primary">Register</button>
             </div>
-            <div id="register-status"></div>
+            <p id="register-status"></p>
         </div>
     </div>
 
+    <style>
+        .info-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        .info-row {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        .info-label {
+            font-weight: bold;
+            min-width: 100px;
+            display: inline-block;
+        }
+        .status {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.recognized {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.unknown {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status.ready {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        .register-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .register-btn:hover {
+            background-color: #45a049;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+            position: relative;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .modal-buttons {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .modal-buttons button {
+            margin-left: 10px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .primary {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .primary:hover {
+            background-color: #45a049;
+        }
+        #register-status {
+            margin-top: 15px;
+            min-height: 20px;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
     <script>
         const videoFeed = document.getElementById('video-feed');
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
+        const clearFacesBtn = document.getElementById('clear-faces-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const modal = document.getElementById('register-modal');
+        const closeBtn = document.querySelector('.close');
+        const cancelRegisterBtn = document.getElementById('cancel-register-btn');
+        const confirmRegisterBtn = document.getElementById('confirm-register-btn');
+        const personNameInput = document.getElementById('person-name');
+        const registerStatus = document.getElementById('register-status');
+        const nameSpan = document.getElementById('name');
+        const timeSpan = document.getElementById('time');
+        const locationSpan = document.getElementById('location');
+        const registerBtnContainer = document.getElementById('register-btn-container');
 
         let isMonitoring = false;
+        let isRegistering = false;
 
         function startMonitoring() {
             if (!isMonitoring) {
@@ -88,19 +225,7 @@
             }
         }
 
-        startBtn.addEventListener('click', startMonitoring);
-        stopBtn.addEventListener('click', stopMonitoring);
-
-        // Control buttons
-        const clearFacesBtn = document.getElementById('clear-faces-btn');
-        
-        // Modal elements
-        const modal = document.getElementById('register-modal');
-        const registerBtn = document.getElementById('register-btn');
-        const closeBtn = document.querySelector('.close');
-        
-        // Clear known faces
-        clearFacesBtn.addEventListener('click', () => {
+        function clearKnownFaces() {
             if (confirm('Are you sure you want to clear all known faces? This cannot be undone.')) {
                 fetch('/clear_faces', { method: 'POST' })
                     .then(response => response.json())
@@ -114,45 +239,48 @@
                         alert('Failed to clear known faces');
                     });
             }
+        }
+        
+        startBtn.addEventListener('click', startMonitoring);
+        stopBtn.addEventListener('click', stopMonitoring);
+        clearFacesBtn.addEventListener('click', clearKnownFaces);
+        
+        // Show register modal when register button is clicked
+        if (registerBtn) {
+            registerBtn.addEventListener('click', () => {
+                modal.style.display = 'block';
+                personNameInput.focus();
+            });
+        }
+        
+        // Close modal when clicking the X or cancel button
+        [closeBtn, cancelRegisterBtn].forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                modal.style.display = 'none';
+                resetRegisterForm();
+            });
         });
-        const confirmBtn = document.getElementById('confirm-register');
-        const cancelBtn = document.getElementById('cancel-register');
-        const personNameInput = document.getElementById('person-name');
-        const registerStatus = document.getElementById('register-status');
-
-        // Show modal when register button is clicked
-        registerBtn.addEventListener('click', () => {
-            modal.style.display = 'block';
-            personNameInput.focus();
-        });
-
-        // Close modal when clicking the X
-        closeBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-            resetRegisterForm();
-        });
-
-        // Close modal when clicking outside the modal
+        
+        // Handle confirm registration
+        if (confirmRegisterBtn) {
+            confirmRegisterBtn.addEventListener('click', registerNewFace);
+        }
+        
+        // Handle Enter key in the name input
+        if (personNameInput) {
+            personNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    registerNewFace();
+                }
+            });
+        }
+        
+        // Close modal when clicking outside
         window.addEventListener('click', (event) => {
             if (event.target === modal) {
                 modal.style.display = 'none';
                 resetRegisterForm();
-            }
-        });
-
-        // Handle cancel button
-        cancelBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-            resetRegisterForm();
-        });
-
-        // Handle confirm registration
-        confirmBtn.addEventListener('click', registerNewFace);
-
-        // Handle Enter key in the name input
-        personNameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                registerNewFace();
             }
         });
 
@@ -161,14 +289,25 @@
             registerStatus.style.display = 'none';
         }
 
+        // Register new face
         function registerNewFace() {
             const name = personNameInput.value.trim();
             if (!name) {
-                showStatus('Please enter a name', 'error');
+                registerStatus.textContent = 'Please enter a name';
+                registerStatus.style.color = 'red';
                 return;
             }
-
-            // Send the registration request
+            
+            registerStatus.textContent = 'Registering...';
+            registerStatus.style.color = 'black';
+            
+            // Disable the register button to prevent multiple submissions
+            const registerButton = document.getElementById('confirm-register-btn');
+            if (registerButton) {
+                registerButton.disabled = true;
+                registerButton.textContent = 'Registering...';
+            }
+            
             fetch('/register_face', {
                 method: 'POST',
                 headers: {
@@ -176,64 +315,152 @@
                 },
                 body: JSON.stringify({ name: name })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.message || 'Failed to register face');
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.status === 'success') {
-                    showStatus(data.message, 'success');
+                    registerStatus.textContent = `Successfully registered ${data.name}!`;
+                    registerStatus.style.color = 'green';
+                    
+                    // Update the UI without reloading the page
+                    updateUIAfterRegistration(data.name);
+                    
                     // Close the modal after a short delay
                     setTimeout(() => {
                         modal.style.display = 'none';
                         resetRegisterForm();
-                        // Update the display with the new name
-                        document.getElementById('name').textContent = name;
-                        document.getElementById('register-btn-container').style.display = 'none';
                     }, 1500);
                 } else {
-                    showStatus(data.message || 'Error registering face', 'error');
+                    throw new Error(data.message || 'Failed to register face');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showStatus('Error registering face', 'error');
+                registerStatus.textContent = error.message || 'Failed to register face';
+                registerStatus.style.color = 'red';
+            })
+            .finally(() => {
+                // Re-enable the register button
+                if (registerButton) {
+                    registerButton.disabled = false;
+                    registerButton.textContent = 'Register';
+                }
             });
         }
+        
+        // Update UI after successful registration
+        function updateUIAfterRegistration(name) {
+            // Update the displayed name
+            nameSpan.textContent = name;
+            
+            // Hide the register button
+            registerBtnContainer.style.display = 'none';
+            
+            // Update the latest identification data
+            const latestId = document.getElementById('latest-identification');
+            if (latestId) {
+                latestId.textContent = name;
+            }
+        }
 
-        function showStatus(message, type) {
-            registerStatus.textContent = message;
-            registerStatus.className = type;
-            registerStatus.style.display = 'block';
+        function updateIdentificationInfo() {
+            // Fetch the latest identification data
+            fetch('/latest_identification')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    updateUIWithIdentificationData(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching identification data:', error);
+                });
+        }
+        
+        function updateUIWithIdentificationData(data) {
+            if (!data) {
+                console.log('No data received');
+                return;
+            }
+            
+            console.log('Received data:', data);
+            
+            const name = data.name || 'Unknown';
+            const isUnknown = data.is_unknown || name === 'Unknown' || name === 'Unknown';
+            
+            console.log(`Name: ${name}, isUnknown: ${isUnknown}, face_detected: ${data.face_detected}`);
+            
+            // Update basic info
+            nameSpan.textContent = isUnknown ? 'Unknown' : name;
+            timeSpan.textContent = data.time || '-';
+            
+            // Update confidence if available
+            if (data.confidence !== undefined) {
+                const confidencePercent = Math.round((data.confidence || 0) * 100);
+                document.getElementById('confidence').textContent = 
+                    isUnknown ? 'N/A' : `${confidencePercent}%`;
+            }
+            
+            // Update status
+            const statusElement = document.getElementById('status');
+            const faceDetected = data.face_detected === true;  // Ensure boolean
+            
+            if (faceDetected) {
+                statusElement.textContent = isUnknown ? 'Unknown Face Detected' : 'Face Recognized';
+                statusElement.className = isUnknown ? 'status unknown' : 'status recognized';
+            } else {
+                statusElement.textContent = 'No Face Detected';
+                statusElement.className = 'status ready';
+            }
+            
+            // Debug information
+            console.log('Face detection debug:', {
+                name: name,
+                isUnknown: isUnknown,
+                faceDetected: faceDetected,
+                confidence: data.confidence
+            });
+            
+            // Show/hide register button for unknown faces
+            const shouldShowRegister = isUnknown && faceDetected;
+            console.log('Register button conditions:', {
+                shouldShowRegister: shouldShowRegister,
+                isUnknown: isUnknown,
+                faceDetected: faceDetected,
+                registerBtnContainerExists: !!registerBtnContainer
+            });
+            
+            if (registerBtnContainer) {
+                console.log('Register button container before:', registerBtnContainer.style.display);
+                registerBtnContainer.style.display = shouldShowRegister ? 'inline-block' : 'none';
+                console.log('Register button container after:', registerBtnContainer.style.display);
+                
+                // Force a reflow to ensure the display change is applied
+                void registerBtnContainer.offsetWidth;
+                
+                // Add a red border for debugging
+                registerBtnContainer.style.border = shouldShowRegister ? '2px solid red' : 'none';
+            } else {
+                console.error('Register button container not found!');
+            }
         }
 
         // Start monitoring automatically when the page loads
         window.onload = function() {
             startMonitoring();
-            setInterval(updateIdentificationInfo, 2000); // Update every 2 seconds
+            // Update immediately and then every second
+            updateIdentificationInfo();
+            setInterval(updateIdentificationInfo, 1000);
         };
-
-        function updateIdentificationInfo() {
-            fetch('/latest_identification')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.name) {
-                        document.getElementById('name').textContent = data.name;
-                        document.getElementById('time').textContent = data.time || '';
-                        document.getElementById('location').textContent = data.location || '';
-                        
-                        // Show register button for unknown faces
-                        const registerBtnContainer = document.getElementById('register-btn-container');
-                        if (data.is_unknown) {
-                            registerBtnContainer.style.display = 'inline';
-                        } else {
-                            registerBtnContainer.style.display = 'none';
-                        }
-                    } else {
-                        document.getElementById('name').textContent = '';
-                        document.getElementById('time').textContent = '';
-                        document.getElementById('location').textContent = '';
-                        document.getElementById('register-btn-container').style.display = 'none';
-                    }
-                });
-        }
     </script>
 </body>
 </html>
